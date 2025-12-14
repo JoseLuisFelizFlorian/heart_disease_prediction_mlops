@@ -1,0 +1,137 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from src import preprocessing, config
+
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(
+    page_title="Heart Disease AI",
+    page_icon="🫀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- CARGA DE ARTEFACTOS (El Motor) ---
+# Usamos la función con caché que fue creada en src/preprocessing.py
+artifacts = preprocessing.load_all_artifacts()
+
+if not artifacts:
+    st.stop() # Si falla la carga, detenemos la app aquí.
+
+# --- BARRA LATERAL (INPUTS) ---
+def sidebar_inputs():
+    with st.sidebar:
+        
+        # Encabezado
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="background-color: #DC2626; color: white; padding: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <span style="font-size: 30px;">🫀</span>
+                </div>
+                <h1 style="font-size: 20px; font-weight: bold; color: #1F2937; margin-top: 10px;">Heart Disease AI APP</h1>
+                <span style="background-color: #EFF6FF; color: #2563EB; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; letter-spacing: 1px;">CLINICAL SUPPORT SYSTEM</span>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+
+        # Botón Aleatorio (Visual por ahora)
+        if st.button("🎲 Cargar Caso Aleatorio", use_container_width=True):
+            st.toast("Funcionalidad de aleatoriedad en construcción...", icon="🚧")
+
+        st.markdown("---")
+
+        # Formulario de pacientes
+
+        # --- Grupo 1: Paciente ---
+        st.caption("👤 DATOS DEL PACIENTE")
+        age = st.slider("Edad", 20, 90, 50)
+        sex = st.radio("Sexo", ["M", "F"], horizontal=True, format_func=lambda x: "Masculino" if x == "M" else "Femenino")
+
+        st.markdown("---")
+
+        # --- Grupo 2: Signos Vitales ---
+        st.caption("🩺 SIGNOS VITALES")
+        c1, c2 = st.columns(2)
+        resting_bp = c1.number_input("Presión (BP)", 80, 200, 120)
+        cholesterol = c2.number_input("Colesterol", 80, 600, 200)
+        
+        fasting_bs = st.selectbox("Glucemia > 120 mg/dl?", [0, 1], format_func=lambda x: "No (Normal)" if x==0 else "Sí (Alta)")
+        max_hr = st.slider("Frecuencia Cardíaca Máx.", 60, 220, 150)
+
+        st.markdown("---")
+
+        # --- Grupo 3: Evaluación Cardíaca ---
+        st.caption("💔 EVALUACIÓN CARDÍACA")
+        chest_pain = st.selectbox(
+            "Tipo de Dolor (ChestPain)", 
+            ["ASY", "NAP", "ATA", "TA"],
+            help="ASY: Asintomático | NAP: No Anginoso | ATA: Atípica | TA: Típica"
+        )
+        
+        exercise_angina = st.checkbox("Angina por Ejercicio?", value=False)
+        ex_angina_val = "Y" if exercise_angina else "N"
+
+        c3, c4 = st.columns(2)
+        oldpeak = c3.number_input("Oldpeak", 0.0, 6.0, 0.0, step=0.1)
+        st_slope = c4.selectbox("Slope", ["Up", "Flat", "Down"])
+        
+        resting_ecg = st.selectbox("ECG en Reposo", ["Normal", "ST", "LVH"])
+
+        # Botón de Acción Principal
+        st.markdown("---")
+        analyze_btn = st.button("ANALIZAR RIESGO", type="primary", use_container_width=True)
+
+        # Retornamos los datos en un diccionario limpio
+        input_data = {
+            'Age': age, 'Sex': sex, 'ChestPainType': chest_pain, 
+            'RestingBP': resting_bp, 'Cholesterol': cholesterol, 
+            'FastingBS': fasting_bs, 'RestingECG': resting_ecg, 
+            'MaxHR': max_hr, 'ExerciseAngina': ex_angina_val, 
+            'Oldpeak': oldpeak, 'ST_Slope': st_slope
+        }
+        return input_data, analyze_btn
+
+# Ejecutamos sidebar y capturamos datos
+user_input, is_analyzing = sidebar_inputs()
+
+# --- ÁREA PRINCIPAL (TABS) ---
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🩺 Diagnóstico", 
+    "📊 Rendimiento de Modelos", 
+    "🕰️ Historial de Predicción",
+    "📂 Carga Masiva de Datos"
+])
+
+# --- LÓGICA DE PESTAÑAS (Placeholders) ---
+
+with tab1:
+    st.header("Resultado")
+    if is_analyzing:
+        # Aquí conectaremos el backend más adelante
+        st.info("🔄 Procesando datos con el motor de IA... (Lógica pendiente)")
+        # Solo para probar que los datos llegan:
+        st.write("Datos capturados:", user_input)
+    else:
+        st.markdown(
+            """
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 10px; border: 1px dashed #9CA3AF; text-align: center;">
+                <h3 style="color: #6B7280; margin: 0;">Esperando datos del paciente...</h3>
+                <p style="color: #9CA3AF;">Ajusta los valores en la barra lateral y presiona <strong>ANALIZAR RIESGO</strong>.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+
+with tab2:
+    st.header("Auditoría de Rendimiento")
+    st.info("🚧 Aquí irán las gráficas de Plotly comparando Accuracy y Recall.")
+
+with tab3:
+    st.header("Historial de Sesión")
+    st.warning("🚧 Aquí irá la tabla de pacientes analizados hoy.")
+
+with tab4:
+    st.header("Procesamiento por Lotes (Batch)")
+    st.error("🚧 Aquí irá el área de Drag & Drop para CSV.")
