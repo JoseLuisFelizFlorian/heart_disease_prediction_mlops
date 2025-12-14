@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+
+from datetime import datetime
 from src import preprocessing, config
 
 # --- CONFIGURACIÓN DE PÁGINA ---
@@ -11,6 +13,15 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# NOTA: PARTE IMPORTANTE PARA QUE FUNCIONE EL TAB 3
+# INICIO TAB 3
+
+# --- INICIALIZAR ESTADO DE SESIÓN (HISTORIAL) ---
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
+# FIN TAB 3
 
 # --- CARGA DE ARTEFACTOS (El Motor) ---
 # Usamos la función con caché que fue creada en src/preprocessing.py
@@ -165,6 +176,29 @@ with tab1:
         
         # Regla de decisión: Si 2 o más modelos dicen enfermo -> ALERTA
         is_high_risk = votes_positive >= 2 
+
+
+        # NOTA: PARTE IMPORTANTE PARA QUE FUNCIONE EL TAB 3
+        # INICIO TAB 3
+        
+        # Creamos un registro estructurado
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        new_record = {
+            "Fecha": timestamp,
+            "Edad": user_input["Age"],
+            "Sexo": "M" if user_input["Sex"] == "M" else "F",
+            "Colesterol": user_input["Cholesterol"],
+            "Diagnóstico": "ALTO RIESGO" if is_high_risk else "Bajo Riesgo",
+            "Probabilidad": f"{avg_probability:.1%}",
+            "Modelos_Positivos": f"{votes_positive}/4"
+        }
+        
+        # Lo agregamos a la memoria (al principio de la lista para que salga arriba)
+        st.session_state["history"].insert(0, new_record)
+
+        # FIN TAB 3
+
 
         # Visualización del Resultado Principal (Tarjeta Grande)
         if is_high_risk:
@@ -321,8 +355,47 @@ with tab2:
     st.caption(f"📅 Datos basados en el entrenamiento del modelo (Test Set). Fuente: {config.METRICS_PATH}")
 
 with tab3:
-    st.header("Historial de Sesión")
-    st.warning("🚧 Aquí irá la tabla de pacientes analizados hoy.")
+    st.header("🕰️ Historial de Sesión")
+    
+    # Verificamos si hay datos en la memoria
+    if len(st.session_state["history"]) == 0:
+        st.info("No hay registros en esta sesión. Realiza un diagnóstico en la pestaña 1 para ver datos aquí.")
+    else:
+        # Convertir lista a DataFrame
+        history_df = pd.DataFrame(st.session_state["history"])
+        
+        # Métricas Rápidas (KPIs)
+        kpi1, kpi2, kpi3 = st.columns(3)
+        kpi1.metric("Pacientes Analizados", len(history_df))
+        kpi2.metric("Casos de Alto Riesgo", len(history_df[history_df["Diagnóstico"] == "ALTO RIESGO"]))
+        
+        # Filtramos último registro
+        last_time = history_df.iloc[0]["Fecha"].split(" ")[1]
+        kpi3.metric("Último Análisis", last_time)
+        
+        st.markdown("---")
+        
+        # Mostrar Tabla con Colores
+        def highlight_risk(val):
+            color = "#BD0A0A5C" if val == 'ALTO RIESGO' else "#1AE87D5D" # Rojo suave vs Verde suave
+            return f'background-color: {color}'
+
+        st.dataframe(
+            history_df.style.map(highlight_risk, subset=['Diagnóstico']),
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Botón de Exportación (Descargar CSV)
+        csv = history_df.to_csv(index=False).encode('utf-8')
+        
+        st.download_button(
+            label="📥 Descargar Reporte CSV",
+            data=csv,
+            file_name="heart_disease_history.csv",
+            mime="text/csv",
+            type="primary"
+        )
 
 with tab4:
     st.header("Procesamiento por Lotes (Batch)")
